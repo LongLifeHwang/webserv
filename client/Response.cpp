@@ -688,7 +688,6 @@ int Response::checkAllowedMethod()
     {
         request.status = 405;
         makeError();
-        // makeEntity();  //why
         return (1);
     }
     return (0);
@@ -696,9 +695,9 @@ int Response::checkAllowedMethod()
 
 void    Response::makeHeader(string key, string value)
 {
-    if (std::find(keyHeader.begin(), keyHeader.end(), key) != keyHeader.end())
-        return ;
-    keyHeader.push_back(key);
+    // if (std::find(keyHeader.begin(), keyHeader.end(), key) != keyHeader.end())
+    //     return ;
+    // keyHeader.push_back(key);
     header += key + ": " + value + "\r\n";
 }
 
@@ -759,11 +758,11 @@ void    Response::makeContent(int fd)
 
 void    Response::makeEntity()
 {
+    entity.clear();
     if (request.status >= 400)
         makeHeader("connection", "close");
     else
         makeHeader("connection", "keep-alive");
-    entity.clear();
     // LOG(std::cout<<request.status<<std::endl);
     if (request.status == 0)
         request.status = 200;
@@ -899,7 +898,6 @@ void    Response::responseMake()
     if (request.status > 0 || init())
     {
         makeError();
-        // makeEntity();  //why
         return ;
     }
     // LOG(cout << "request.status: " << request.status << endl);
@@ -910,12 +908,10 @@ void    Response::responseMake()
     if (checkRedirect())
         return ;
     makeFilePath(request.url);
-    // if (request.status > 0)  //why
-    if (request.status >= 400)  //why
+    if (request.status >= 400)
     {
         LOG(std::cout<<"ERROR\n"<<std::endl);
         makeError();
-        // makeEntity();  //why
         return ;
     }
     switch (request.method)

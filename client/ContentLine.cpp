@@ -163,6 +163,8 @@ int ContentLine::chunkedEntity(int &status)
         }
         else
         {
+            if (temp.size() != static_cast<size_t>(size))
+                return (-1);
             write(fd, &temp[0], size);
         }
         ans++;
@@ -238,13 +240,15 @@ int ContentLine::makeContentLine(std::string &str, size_t &readSize, int &status
         readSize = 0;
         str.clear();
         LOG(cout<<"chunked: "<<chunked<<endl);
-        flag = chunked.find("0\r\n\r\n");
+        flag = chunked.find("0\r\n");
         // flag = str.find("0\r\n");  //talnet 때문에 임시로 대체함
         // 에러 발생시 중간에 빠져 나왔을 떄
         if (flag != std::string::npos)
         {
             //chunked 크기 확인하기
-            str = chunked.substr(flag + 5);
+            str = chunked.substr(flag + 3);
+            if (str[0] == '\r' && str[1] == '\n')
+                str = str.substr(2);
             chunked = chunked.substr(0, flag);
             // str = str.substr(flag + 3);
             if (chunkedEntity(status) < 0)

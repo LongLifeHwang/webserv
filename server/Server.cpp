@@ -130,31 +130,38 @@ EVENT   Server::cgiGet(struct kevent& store)
 
     if (store.flags & EV_ERROR)
     {
-        LOG(cout << "cgiGet errno: " << store.data << endl;)
+        LOG(cout << "cgiGet errno: " << store.data << endl);
+        client[Kq::cgiFd[store.ident]].deleteContent();
         return (EXPECT);
     }
-    LOG(cerr << "cgiGet" << endl;)
+    LOG(cerr << "cgiGet" << endl);
     if (cgiContentLength.find(store.ident) == cgiContentLength.end())
     {
-        LOG(cout << "clear setting..." << endl;)
+        LOG(cout << "clear setting..." << endl);
         cgiContentLength[store.ident] = 0;
         cgiContent[store.ident].clear();
     }
     readSize = read(store.ident, buf, BUFFER_SIZE);
     if (readSize < 0)
-        return (ING);
+    {
+        client[Kq::cgiFd[store.ident]].getResponse().setRequestStatus(500);
+        client[Kq::cgiFd[store.ident]].getResponse().makeError();
+        return (ERROR);
+        // client[Kq::cgiFd[store.ident]].deleteContent();
+        // Kq::pidPipe.erase(store.ident);
+        // return (EXPECT);
+    }
     buf[readSize] = '\0';
     cgiContent[store.ident].append(buf, readSize);
     cgiContentLength[store.ident] += readSize;
     LOG(cout << "store.data: " << store.data << " readSize: " << readSize << endl;)
     if (store.data - readSize <= 0)
     {
-        LOG(cout << "write message setting start..." << endl;)
+        LOG(cout << "write message setting start..." << endl);
         client[Kq::cgiFd[store.ident]].setCgiGetEntity(cgiContentLength[store.ident], cgiContent[store.ident]);
         cgiContent[store.ident].clear();
         cgiContentLength[store.ident] = 0;
         cgiContentLength.erase(store.ident);
-        Kq::pidPipe.erase(store.ident);
         return (FINISH);
     }
     return (ING);
@@ -168,8 +175,13 @@ EVENT   Server::cgiRead(struct kevent& store)
     // char        readBuffer[1];
 
     if (store.flags & EV_ERROR)
-        return (ERROR);
-    LOG(cerr << "cgiRead" << endl;)
+    {
+        Kq::clientToCgiFd.erase(Kq::cgiFd[store.ident]);
+        client[Kq::cgiFd[store.ident]].deleteContent();
+        Kq::clientToCgiFd.erase(Kq::cgiFd[store.ident]);
+        return (EXPECT);
+    }
+    LOG(cerr << "cgiRead" << endl);
 	LOG(cout << "cgiRead fd: " << store.ident << endl);
     //초기 세팅
     if (cgiContentLength.find(store.ident) == cgiContentLength.end())
@@ -190,6 +202,7 @@ EVENT   Server::cgiRead(struct kevent& store)
     {
         client[Kq::cgiFd[store.ident]].getResponse().setRequestStatus(500);
         client[Kq::cgiFd[store.ident]].getResponse().makeError();
+        Kq::clientToCgiFd.erase(Kq::cgiFd[store.ident]);
         return (ERROR);
     }  //makeError 같이 고민해보기
 	LOG(cout << "CGI Read Size : " << readSize << endl);
@@ -220,7 +233,6 @@ EVENT   Server::cgiRead(struct kevent& store)
                 status = 600;
             LOG(std::cout<<"status: "<< status << std::endl);
             Kq::processor.erase(it);
-            Kq::cgiFdToClient.erase(Kq::cgiFd[store.ident]);
         }
         LOG(std::cout<<"ERROR Kq::cgiFd[store.ident] : "<<Kq::cgiFd[store.ident]<<std::endl);
         client[Kq::cgiFd[store.ident]].setCgiResponseEntity(cgiContentLength[store.ident], cgiContent[store.ident], status);
@@ -228,7 +240,7 @@ EVENT   Server::cgiRead(struct kevent& store)
         cgiContent[store.ident].clear();
         cgiContentLength[store.ident] = 0;
         cgiContentLength.erase(store.ident);
-        Kq::pidPipe.erase(store.ident);
+        Kq::clientToCgiFd.erase(Kq::cgiFd[store.ident]);
         if (status >= 400)
             return (ERROR);
         LOG(cout << "status 1: " << status << endl);

@@ -53,7 +53,7 @@ class Kq
 		static std::map<int, int>	cgiFd;
         static std::map<int, pid_t> pidPipe;
         static std::vector<int>     closeFd;
-        static std::map<int, int>   cgiFdToClient;
+        static std::map<int, int>   clientToCgiFd;
         Kq(string pathEnv_);
         Kq(const Kq& src);
         Kq& operator=(const Kq& src);
